@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#080e1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="P&L">
+<title>P&L Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#080e1a;
+  --s1:#0f1829;
+  --s2:#172035;
+  --border:rgba(255,255,255,0.06);
+  --text:#f0f4ff;
+  --muted:#6b7fa3;
+  --green:#00e5a0;
+  --green-d:rgba(0,229,160,0.12);
+  --red:#ff5f6d;
+  --red-d:rgba(255,95,109,0.12);
+  --blue:#4f9eff;
+  --blue-d:rgba(79,158,255,0.12);
+  --amber:#ffb347;
+  --amber-d:rgba(255,179,71,0.12);
+  --r:14px;--rs:8px;
+}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;min-height:100vh;overscroll-behavior:none}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:20;background:rgba(8,14,26,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:12px 16px 12px;display:flex;align-items:center;justify-content:space-between;padding-top:max(12px,env(safe-area-inset-top))}
+.hd-left h1{font-size:18px;font-weight:700;letter-spacing:-0.5px}
+.hd-left p{font-size:11px;color:var(--muted);margin-top:2px}
+.hd-right{display:flex;align-items:center;gap:8px}
+.live-pill{display:flex;align-items:center;gap:5px;background:var(--green-d);border:1px solid rgba(0,229,160,0.2);border-radius:20px;padding:5px 11px;font-size:11px;font-weight:600;color:var(--green);cursor:pointer}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.cfg-btn{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:5px 10px;font-size:12px;color:var(--muted);cursor:pointer}
+
+/* NAV TABS */
+.tabs{display:flex;padding:0 16px;gap:4px;border-bottom:1px solid var(--border);background:var(--bg)}
+.tab{flex:1;text-align:center;padding:10px 4px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+
+/* MAIN */
+main{padding:16px;max-width:520px;margin:0 auto;display:none}
+main.active{display:block}
+
+/* CONFIG MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:50;display:none;align-items:flex-end;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:var(--r) var(--r) 0 0;padding:24px 20px 40px;width:100%;max-width:520px}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:4px}
+.modal p{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.modal label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;margin-top:12px}
+.modal input{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:13px;padding:10px 12px;font-family:'SF Mono',monospace;outline:none}
+.modal input:focus{border-color:rgba(79,158,255,0.4)}
+.modal input::placeholder{color:var(--muted)}
+.save-btn{width:100%;margin-top:16px;background:var(--blue);color:#fff;border:none;border-radius:var(--rs);padding:13px;font-size:14px;font-weight:700;cursor:pointer}
+.err{background:var(--red-d);border:1px solid rgba(255,95,109,0.25);border-radius:var(--rs);color:var(--red);font-size:12px;padding:10px 12px;margin-top:10px;display:none}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.kpi-wide{grid-column:1/-1}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px}
+.kpi-val{font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1}
+.kpi-val.g{color:var(--green)}
+.kpi-val.r{color:var(--red)}
+.kpi-val.b{color:var(--blue)}
+.kpi-val.a{color:var(--amber)}
+.kpi-sub{font-size:12px;color:var(--muted);margin-top:5px}
+.kpi-sub.g{color:var(--green)}
+.kpi-sub.r{color:var(--red)}
+
+/* STATUS BADGE */
+.status{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;margin-bottom:14px}
+.status.win{background:var(--green-d);color:var(--green);border:1px solid rgba(0,229,160,0.2)}
+.status.loss{background:var(--red-d);color:var(--red);border:1px solid rgba(255,95,109,0.2)}
+
+/* CHART CARD */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{color:var(--muted);text-align:right;padding:8px 10px;font-weight:500;font-size:11px;border-bottom:1px solid var(--border);white-space:nowrap}
+th:first-child{text-align:left}
+td{text-align:right;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,0.03);white-space:nowrap}
+td:first-child{text-align:left;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+.td-g{color:var(--green);font-weight:600}
+.td-r{color:var(--red);font-weight:600}
+.td-b{color:var(--blue)}
+.today-row{background:rgba(79,158,255,0.06)}
+.today-row td:first-child{color:var(--blue);font-weight:600}
+
+/* WEEK SUMMARY */
+.week-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.week-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:12px}
+.week-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.week-val{font-size:18px;font-weight:700;color:var(--text)}
+.week-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* SKELETON */
+.skeleton{background:linear-gradient(90deg,var(--s2) 25%,var(--s1) 50%,var(--s2) 75%);background-size:200%;animation:shimmer 1.4s infinite;border-radius:var(--rs);height:80px;margin-bottom:10px}
+@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
+
+/* LOADING */
+.loading-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.loading-state svg{animation:spin 1s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* TREND PILL */
+.trend{font-size:11px;font-weight:600;border-radius:10px;padding:2px 7px}
+.trend.up{background:var(--green-d);color:var(--green)}
+.trend.dn{background:var(--red-d);color:var(--red)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd-left">
+    <h1>P&L Dashboard</h1>
+    <p id="sync-label">Verbinding maken...</p>
+  </div>
+  <div class="hd-right">
+    <button class="live-pill" onclick="fetchData()"><span class="live-dot"></span>Live</button>
+    <button class="cfg-btn" onclick="openCfg()">⚙️</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('today')">Vandaag</div>
+  <div class="tab" onclick="switchTab('week')">Week</div>
+  <div class="tab" onclick="switchTab('month')">Maand</div>
+  <div class="tab" onclick="switchTab('all')">Alle dagen</div>
+</div>
+
+<!-- TODAY TAB -->
+<main id="tab-today" class="active">
+  <div id="today-loading" class="loading-state">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+    <p>Data ophalen...</p>
+  </div>
+  <div id="today-content" style="display:none">
+    <div id="today-status"></div>
+    <div class="kpi-grid">
+      <div class="kpi kpi-wide">
+        <div class="kpi-label">Omzet vandaag</div>
+        <div class="kpi-val b" id="t-rev">—</div>
+        <div class="kpi-sub" id="t-orders">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Profit dag</div>
+        <div class="kpi-val" id="t-profit">—</div>
+        <div class="kpi-sub" id="t-cm">CM: —</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Ad Spend</div>
+        <div class="kpi-val a" id="t-ads">—</div>
+        <div class="kpi-sub" id="t-roas">ROAS: —</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Est. COG</div>
+        <div class="kpi-val" id="t-cog">—</div>
+        <div class="kpi-sub" id="t-cogpct">COG%: —</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">AOV</div>
+        <div class="kpi-val" id="t-aov">—</div>
+        <div class="kpi-sub" id="t-stores">— stores</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Total profit MTD</div>
+      <div style="font-size:32px;font-weight:800;letter-spacing:-1px;color:var(--green)" id="t-totalprofit">—</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px" id="t-totaldays">— actieve dagen</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Profit trend (afgelopen 7 dagen)</div>
+      <canvas id="chart-today" height="140"></canvas>
+    </div>
+  </div>
+</main>
+
+<!-- WEEK TAB -->
+<main id="tab-week">
+  <div id="week-content">
+    <div class="loading-state"><p style="color:var(--muted)">Laad eerst data op het Vandaag-tabblad.</p></div>
+  </div>
+</main>
+
+<!-- MONTH TAB -->
+<main id="tab-month">
+  <div id="month-content">
+    <div class="loading-state"><p style="color:var(--muted)">Laad eerst data op het Vandaag-tabblad.</p></div>
+  </div>
+</main>
+
+<!-- ALL DAYS TAB -->
+<main id="tab-all">
+  <div id="all-content">
+    <div class="loading-state"><p style="color:var(--muted)">Laad eerst data op het Vandaag-tabblad.</p></div>
+  </div>
+</main>
+
+<!-- CONFIG MODAL -->
+<div class="modal-bg" id="cfg-modal" onclick="if(event.target===this)closeCfg()">
+  <div class="modal">
+    <h3>🔗 Google Sheets koppeling</h3>
+    <p>Vul je Sheet ID en een Google API sleutel in. De sheet is al ingesteld op de juiste kolommen (A=datum, B=revenue, C=orders, D=Google Ads, E=COG, H=Profit, I=Total Profit, J=CM%, L=ROAS, M=AOV, N=Stores).</p>
+    <label>Google Sheet ID</label>
+    <input id="cfg-sheetid" type="text" placeholder="1mP0XC0..." value="1mP0XC0uKJoAtDRWC1lGIOeROLcfy8LkUCI31Xfxsy-M" />
+    <label>Tabblad naam</label>
+    <input id="cfg-tab" type="text" placeholder="Daily Overview" value="Daily Overview" />
+    <label>Google API Key</label>
+    <input id="cfg-key" type="password" placeholder="AIza..." />
+    <div class="err" id="cfg-err"></div>
+    <button class="save-btn" onclick="saveCfg()">Opslaan & verbinden</button>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+let CFG = {
+  sheetId: localStorage.getItem('pnl_sid') || '1mP0XC0uKJoAtDRWC1lGIOeROLcfy8LkUCI31Xfxsy-M',
+  tab:     localStorage.getItem('pnl_tab') || 'Daily Overview',
+  key:     localStorage.getItem('pnl_key') || ''
+};
+
+let allData = [];
+let charts = {};
+
+// ── TABS ────────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['today','week','month','all'][i] === id);
+  });
+  document.querySelectorAll('main').forEach(m => m.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  if (allData.length) renderTab(id);
+}
+
+// ── CONFIG MODAL ─────────────────────────────────────────────
+function openCfg() {
+  document.getElementById('cfg-sheetid').value = CFG.sheetId;
+  document.getElementById('cfg-tab').value = CFG.tab;
+  document.getElementById('cfg-key').value = CFG.key;
+  document.getElementById('cfg-modal').classList.add('open');
+}
+function closeCfg() { document.getElementById('cfg-modal').classList.remove('open'); }
+function saveCfg() {
+  CFG.sheetId = document.getElementById('cfg-sheetid').value.trim();
+  CFG.tab     = document.getElementById('cfg-tab').value.trim();
+  CFG.key     = document.getElementById('cfg-key').value.trim();
+  localStorage.setItem('pnl_sid', CFG.sheetId);
+  localStorage.setItem('pnl_tab', CFG.tab);
+  localStorage.setItem('pnl_key', CFG.key);
+  closeCfg();
+  fetchData();
+}
+
+// ── PARSE HELPERS ────────────────────────────────────────────
+function parseMoney(s) {
+  if (!s || s === '-') return null;
+  return parseFloat(s.replace(/[€$\s.,]/g, m => m === ',' ? '' : m === '.' ? '' : '').replace(/[^\d\-]/g,'')) ||
+         parseFloat(s.replace(/[€$\s]/g,'').replace(',','.').replace(/[^\d\.\-]/g,'')) || 0;
+}
+
+function parseVal(s) {
+  if (!s || s === '-') return null;
+  // Handle € with dots as thousands sep and comma as decimal (Dutch)
+  let clean = s.trim().replace('€','').replace('%','').trim();
+  // Dutch format: 1.234,56 → 1234.56
+  if (/\d{1,3}\.\d{3}/.test(clean)) clean = clean.replace(/\./g,'');
+  clean = clean.replace(',','.');
+  const n = parseFloat(clean);
+  return isNaN(n) ? null : n;
+}
+
+function parseROAS(s) {
+  if (!s || s === '-') return null;
+  return parseFloat(s.replace('x','').replace(',','.')) || null;
+}
+
+function fmt(n, decimals=0) {
+  if (n == null) return '—';
+  return '€' + Math.abs(n).toLocaleString('nl-NL', {minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+function fmtSigned(n) {
+  if (n == null) return '—';
+  return (n < 0 ? '-' : '+') + fmt(n);
+}
+function fmtPct(n) {
+  if (n == null) return '—';
+  return n.toFixed(1) + '%';
+}
+
+// ── FETCH ────────────────────────────────────────────────────
+async function fetchData() {
+  if (!CFG.key) { openCfg(); return; }
+  document.getElementById('sync-label').textContent = 'Ophalen...';
+
+  const range = encodeURIComponent(`'${CFG.tab}'!A4:N37`);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${CFG.sheetId}/values/${range}?key=${CFG.key}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt.includes('API key') ? 'Ongeldige API sleutel' : 'Sheets API fout: ' + res.status);
+    }
+    const json = await res.json();
+    const rows = (json.values || []).slice(1); // skip header row 4
+
+    allData = rows
+      .filter(r => r[0] && r[0] !== '-' && r[0] !== 'MONTH TOTAL')
+      .map(r => ({
+        date:        r[0]  || '',
+        revenue:     parseVal(r[1]),
+        orders:      parseVal(r[2]),
+        googleAds:   parseVal(r[3]),
+        cog:         parseVal(r[4]),
+        agoc:        parseVal(r[5]),
+        fee:         parseVal(r[6]),
+        profitDay:   parseVal(r[7]),
+        totalProfit: parseVal(r[8]),
+        cm:          parseVal(r[9]),
+        cogPct:      parseVal(r[10]),
+        roas:        parseROAS(r[11]),
+        aov:         parseVal(r[12]),
+        stores:      parseVal(r[13]),
+      }))
+      .filter(r => r.revenue != null && r.revenue > 0);
+
+    if (!allData.length) throw new Error('Geen data gevonden. Controleer tabblad naam.');
+
+    const now = new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('sync-label').textContent = 'Live · ' + now;
+
+    renderTab('today');
+    renderTab('week');
+    renderTab('month');
+    renderTab('all');
+
+  } catch(e) {
+    document.getElementById('sync-label').textContent = 'Fout bij laden';
+    document.getElementById('cfg-err').textContent = e.message;
+    document.getElementById('cfg-err').style.display = 'block';
+    openCfg();
+  }
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function renderTab(id) {
+  if (id === 'today') renderToday();
+  if (id === 'week')  renderWeek();
+  if (id === 'month') renderMonth();
+  if (id === 'all')   renderAll();
+}
+
+function renderToday() {
+  const last = allData[allData.length - 1];
+  document.getElementById('today-loading').style.display = 'none';
+  document.getElementById('today-content').style.display = 'block';
+
+  // Status badge
+  const isWin = last.profitDay >= 0;
+  document.getElementById('today-status').innerHTML =
+    `<div class="status ${isWin?'win':'loss'}">${isWin?'✅ Winstdag':'❌ Verliesdag'} · ${last.date}</div>`;
+
+  // KPIs
+  document.getElementById('t-rev').textContent = fmt(last.revenue);
+  document.getElementById('t-orders').textContent = (last.orders || '?') + ' orders · AOV ' + fmt(last.aov);
+
+  const profitEl = document.getElementById('t-profit');
+  profitEl.textContent = fmt(last.profitDay);
+  profitEl.className = 'kpi-val ' + (last.profitDay >= 0 ? 'g' : 'r');
+  document.getElementById('t-cm').textContent = 'CM: ' + fmtPct(last.cm);
+  document.getElementById('t-cm').className = 'kpi-sub ' + (last.cm >= 0 ? 'g' : 'r');
+
+  document.getElementById('t-ads').textContent = fmt(last.googleAds);
+  document.getElementById('t-roas').textContent = 'ROAS: ' + (last.roas ? last.roas.toFixed(2) + 'x' : '—');
+
+  document.getElementById('t-cog').textContent = fmt(last.cog);
+  document.getElementById('t-cogpct').textContent = 'COG%: ' + fmtPct(last.cogPct);
+
+  document.getElementById('t-aov').textContent = fmt(last.aov);
+  document.getElementById('t-stores').textContent = (last.stores || '—') + ' stores actief';
+
+  document.getElementById('t-totalprofit').textContent = fmt(last.totalProfit);
+  document.getElementById('t-totaldays').textContent = allData.length + ' actieve dagen deze maand';
+
+  // 7-day trend chart
+  const last7 = allData.slice(-7);
+  const labels = last7.map(r => r.date.slice(0,5));
+  const profits = last7.map(r => r.profitDay || 0);
+  const revenues = last7.map(r => r.revenue || 0);
+
+  if (charts['today']) charts['today'].destroy();
+  charts['today'] = new Chart(document.getElementById('chart-today'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Omzet',
+          data: revenues,
+          backgroundColor: 'rgba(79,158,255,0.25)',
+          borderColor: 'rgba(79,158,255,0.6)',
+          borderWidth: 1,
+          borderRadius: 5,
+          yAxisID: 'y2'
+        },
+        {
+          label: 'Profit',
+          data: profits,
+          backgroundColor: profits.map(p => p >= 0 ? 'rgba(0,229,160,0.7)' : 'rgba(255,95,109,0.7)'),
+          borderRadius: 5,
+          yAxisID: 'y'
+        }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ display:false }, tooltip:{
+        backgroundColor:'#0f1829', borderColor:'rgba(255,255,255,0.08)', borderWidth:1,
+        titleColor:'#6b7fa3', bodyColor:'#f0f4ff',
+        callbacks:{ label: ctx => ctx.dataset.label + ': ' + fmt(ctx.raw) }
+      }},
+      scales:{
+        y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7fa3',font:{size:10},callback:v=>'€'+(v/1000).toFixed(0)+'k'}, position:'left' },
+        y2:{ display:false },
+        x:{ grid:{display:false}, ticks:{color:'#6b7fa3',font:{size:10}} }
+      }
+    }
+  });
+}
+
+function renderWeek() {
+  // Group by week
+  const weeks = {};
+  allData.forEach(r => {
+    const day = parseInt(r.date.slice(0,2));
+    const w = 'Week ' + Math.ceil(day/7);
+    if (!weeks[w]) weeks[w] = {revenue:0, ads:0, profit:0, days:0, roas:[]};
+    weeks[w].revenue += r.revenue || 0;
+    weeks[w].ads += r.googleAds || 0;
+    weeks[w].profit += r.profitDay || 0;
+    weeks[w].days++;
+    if (r.roas) weeks[w].roas.push(r.roas);
+  });
+
+  const entries = Object.entries(weeks);
+  const currentWeek = entries[entries.length-1];
+  const prevWeek = entries.length >= 2 ? entries[entries.length-2] : null;
+
+  let html = '';
+
+  // Current week highlight
+  if (currentWeek) {
+    const [wk, d] = currentWeek;
+    const cm = d.revenue > 0 ? (d.profit/d.revenue*100) : 0;
+    const avgRoas = d.roas.length ? (d.roas.reduce((a,b)=>a+b,0)/d.roas.length) : null;
+    html += `
+    <div class="card" style="border-color:rgba(79,158,255,0.2)">
+      <div class="card-title" style="color:var(--blue)">${wk} — huidig</div>
+      <div class="kpi-grid" style="margin-bottom:0">
+        <div class="kpi"><div class="kpi-label">Omzet</div><div class="kpi-val b">${fmt(d.revenue)}</div><div class="kpi-sub">${d.days} dagen</div></div>
+        <div class="kpi"><div class="kpi-label">Ad Spend</div><div class="kpi-val a">${fmt(d.ads)}</div><div class="kpi-sub">ROAS ${avgRoas ? avgRoas.toFixed(2)+'x' : '—'}</div></div>
+        <div class="kpi"><div class="kpi-label">Profit</div><div class="kpi-val ${d.profit>=0?'g':'r'}">${fmt(d.profit)}</div><div class="kpi-sub ${d.profit>=0?'g':'r'}">CM ${fmtPct(cm)}</div></div>
+        ${prevWeek ? `<div class="kpi"><div class="kpi-label">vs vorige week</div><div class="kpi-val ${d.profit>=prevWeek[1].profit?'g':'r'}">${d.profit>=prevWeek[1].profit?'▲':'▼'} ${fmtPct(Math.abs((d.profit-prevWeek[1].profit)/(Math.abs(prevWeek[1].profit)||1)*100))}</div><div class="kpi-sub">profit delta</div></div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // All weeks chart
+  const wLabels = entries.map(e => e[0]);
+  const wRevs   = entries.map(e => e[1].revenue);
+  const wProf   = entries.map(e => e[1].profit);
+  const wAds    = entries.map(e => e[1].ads);
+
+  html += `<div class="card"><div class="card-title">Weken vergelijking</div><canvas id="chart-week" height="180"></canvas></div>`;
+
+  // Week table
+  html += `<div class="card"><div class="card-title">Weekoverzicht</div><div class="tbl-wrap"><table>
+    <thead><tr><th>Week</th><th>Omzet</th><th>Ad Spend</th><th>Profit</th><th>CM%</th></tr></thead>
+    <tbody>`;
+  entries.forEach(([wk, d]) => {
+    const cm = d.revenue > 0 ? (d.profit/d.revenue*100) : 0;
+    html += `<tr>
+      <td>${wk}</td>
+      <td class="td-b">${fmt(d.revenue)}</td>
+      <td style="color:var(--amber)">${fmt(d.ads)}</td>
+      <td class="${d.profit>=0?'td-g':'td-r'}">${fmt(d.profit)}</td>
+      <td class="${cm>=0?'td-g':'td-r'}">${fmtPct(cm)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table></div></div>';
+
+  document.getElementById('week-content').innerHTML = html;
+
+  if (charts['week']) charts['week'].destroy();
+  charts['week'] = new Chart(document.getElementById('chart-week'), {
+    type: 'bar',
+    data: {
+      labels: wLabels,
+      datasets: [
+        { label:'Omzet', data:wRevs, backgroundColor:'rgba(79,158,255,0.4)', borderRadius:6, yAxisID:'y' },
+        { label:'Ad Spend', data:wAds, backgroundColor:'rgba(255,179,71,0.4)', borderRadius:6, yAxisID:'y' },
+        { label:'Profit', data:wProf, backgroundColor: wProf.map(p=>p>=0?'rgba(0,229,160,0.7)':'rgba(255,95,109,0.7)'), borderRadius:6, yAxisID:'y', type:'line', borderColor:'#00e5a0', borderWidth:2, pointBackgroundColor:'#00e5a0', pointRadius:4, tension:0.3, fill:false }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ labels:{color:'#6b7fa3',font:{size:11}}, position:'bottom' }, tooltip:{ backgroundColor:'#0f1829', borderColor:'rgba(255,255,255,0.08)', borderWidth:1, titleColor:'#6b7fa3', bodyColor:'#f0f4ff', callbacks:{label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw)} }},
+      scales:{ y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7fa3',font:{size:10},callback:v=>'€'+(v/1000).toFixed(0)+'k'} }, x:{ grid:{display:false}, ticks:{color:'#6b7fa3',font:{size:10}} } }
+    }
+  });
+}
+
+function renderMonth() {
+  const total = allData.reduce((acc,r) => {
+    acc.revenue += r.revenue || 0;
+    acc.ads += r.googleAds || 0;
+    acc.cog += r.cog || 0;
+    acc.profit += r.profitDay || 0;
+    acc.orders += r.orders || 0;
+    if (r.roas) { acc.roas.push(r.roas); }
+    return acc;
+  }, {revenue:0,ads:0,cog:0,profit:0,orders:0,roas:[]});
+
+  const cm = total.revenue > 0 ? (total.profit/total.revenue*100) : 0;
+  const avgRoas = total.roas.length ? (total.roas.reduce((a,b)=>a+b,0)/total.roas.length) : null;
+  const winDays = allData.filter(r => r.profitDay >= 0).length;
+  const lossDays = allData.filter(r => r.profitDay < 0).length;
+
+  let html = `
+  <div class="kpi-grid">
+    <div class="kpi kpi-wide"><div class="kpi-label">Totale omzet juni</div><div class="kpi-val b">${fmt(total.revenue)}</div><div class="kpi-sub">${Math.round(total.orders)} orders · ${allData.length} actieve dagen</div></div>
+    <div class="kpi"><div class="kpi-label">Total profit</div><div class="kpi-val ${total.profit>=0?'g':'r'}">${fmt(total.profit)}</div><div class="kpi-sub ${cm>=0?'g':'r'}">CM ${fmtPct(cm)}</div></div>
+    <div class="kpi"><div class="kpi-label">Ad Spend</div><div class="kpi-val a">${fmt(total.ads)}</div><div class="kpi-sub">Gem. ROAS ${avgRoas?avgRoas.toFixed(2)+'x':'—'}</div></div>
+    <div class="kpi"><div class="kpi-label">Est. COG</div><div class="kpi-val">${fmt(total.cog)}</div><div class="kpi-sub">${fmtPct(total.revenue>0?total.cog/total.revenue*100:0)} van omzet</div></div>
+    <div class="kpi"><div class="kpi-label">Winstdagen</div><div class="kpi-val g">${winDays}</div><div class="kpi-sub r">${lossDays} verlies</div></div>
+  </div>`;
+
+  // Cumulative profit chart
+  let cumulative = 0;
+  const cumData = allData.map(r => { cumulative += (r.profitDay||0); return Math.round(cumulative); });
+  const cumLabels = allData.map(r => r.date.slice(0,5));
+
+  html += `<div class="card"><div class="card-title">Cumulatieve profit MTD</div><canvas id="chart-month" height="160"></canvas></div>`;
+
+  // Revenue vs Ads chart
+  html += `<div class="card"><div class="card-title">Omzet vs ad spend per dag</div><canvas id="chart-month2" height="160"></canvas></div>`;
+
+  document.getElementById('month-content').innerHTML = html;
+
+  if (charts['month']) charts['month'].destroy();
+  charts['month'] = new Chart(document.getElementById('chart-month'), {
+    type: 'line',
+    data: {
+      labels: cumLabels,
+      datasets: [{
+        label: 'Profit MTD',
+        data: cumData,
+        borderColor: cumData[cumData.length-1] >= 0 ? '#00e5a0' : '#ff5f6d',
+        borderWidth: 2.5,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: true,
+        backgroundColor: cumData[cumData.length-1] >= 0 ? 'rgba(0,229,160,0.08)' : 'rgba(255,95,109,0.08)'
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#0f1829', borderColor:'rgba(255,255,255,0.08)', borderWidth:1, titleColor:'#6b7fa3', bodyColor:'#f0f4ff', callbacks:{label:ctx=>'Profit: '+fmt(ctx.raw)} }},
+      scales:{ y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7fa3',font:{size:10},callback:v=>'€'+(v/1000).toFixed(0)+'k'} }, x:{ grid:{display:false}, ticks:{color:'#6b7fa3',font:{size:10},maxTicksLimit:8} } }
+    }
+  });
+
+  if (charts['month2']) charts['month2'].destroy();
+  charts['month2'] = new Chart(document.getElementById('chart-month2'), {
+    type: 'bar',
+    data: {
+      labels: cumLabels,
+      datasets: [
+        { label:'Omzet', data:allData.map(r=>r.revenue||0), backgroundColor:'rgba(79,158,255,0.5)', borderRadius:3 },
+        { label:'Ad Spend', data:allData.map(r=>r.googleAds||0), backgroundColor:'rgba(255,179,71,0.5)', borderRadius:3 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ labels:{color:'#6b7fa3',font:{size:11}}, position:'bottom' }, tooltip:{ backgroundColor:'#0f1829', borderColor:'rgba(255,255,255,0.08)', borderWidth:1, titleColor:'#6b7fa3', bodyColor:'#f0f4ff', callbacks:{label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw)} }},
+      scales:{ y:{ stacked:false, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#6b7fa3',font:{size:10},callback:v=>'€'+(v/1000).toFixed(0)+'k'} }, x:{ grid:{display:false}, ticks:{color:'#6b7fa3',font:{size:10},maxTicksLimit:10} } }
+    }
+  });
+}
+
+function renderAll() {
+  let html = `<div class="card" style="padding:0;overflow:hidden"><div class="tbl-wrap"><table>
+    <thead><tr><th>Datum</th><th>Omzet</th><th>Profit</th><th>ROAS</th><th>CM%</th></tr></thead>
+    <tbody>`;
+
+  const todayStr = allData[allData.length-1].date;
+  [...allData].reverse().forEach(r => {
+    const isToday = r.date === todayStr;
+    html += `<tr class="${isToday?'today-row':''}">
+      <td>${r.date.slice(0,5)}${isToday?' ●':''}</td>
+      <td class="td-b">${fmt(r.revenue)}</td>
+      <td class="${r.profitDay>=0?'td-g':'td-r'}">${fmt(r.profitDay)}</td>
+      <td style="color:var(--amber)">${r.roas?r.roas.toFixed(2)+'x':'—'}</td>
+      <td class="${r.cm>=0?'td-g':'td-r'}">${fmtPct(r.cm)}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div></div>';
+  document.getElementById('all-content').innerHTML = html;
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (CFG.key) {
+    fetchData();
+    setInterval(fetchData, 5 * 60 * 1000);
+  } else {
+    openCfg();
+  }
+});
+</script>
+</body>
+</html>
