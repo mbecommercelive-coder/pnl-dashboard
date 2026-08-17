@@ -264,6 +264,11 @@ main.active{display:block}
           <div class="kv" id="kv-profit">—</div>
           <div class="ks" id="ks-cm">CM: —</div>
         </div>
+        <div class="kpi" id="kpi-netprofit">
+          <div class="kl">Netto winst</div>
+          <div class="kv" id="kv-netprofit">—</div>
+          <div class="ks" id="ks-netcm">na overhead —</div>
+        </div>
         <div class="kpi">
           <div class="kl">ROAS</div>
           <div class="kv gold" id="kv-roas">—</div>
@@ -294,11 +299,16 @@ main.active{display:block}
     <div class="div"></div>
     <div class="sec">
       <div class="sec-label">Maand tot nu</div>
-      <div class="kg kg1">
+      <div class="kg kg2">
         <div class="kpi g-acc">
-          <div class="kl">Total profit MTD</div>
+          <div class="kl">Contributie MTD</div>
           <div class="kv g" id="kv-totalprofit">—</div>
           <div class="ks" id="ks-totaldays">—</div>
+        </div>
+        <div class="kpi g-acc" id="kpi-totalnet">
+          <div class="kl">Netto winst MTD</div>
+          <div class="kv g" id="kv-totalnetprofit">—</div>
+          <div class="ks" id="ks-overheadmtd">—</div>
         </div>
       </div>
     </div>
@@ -350,7 +360,7 @@ main.active{display:block}
     <h3>Koppeling instellen</h3>
     <p>Vul je Google Sheet ID en API sleutel in.</p>
     <label class="field-label">Google Sheet ID</label>
-    <input class="field" id="cfg-sid" type="text" placeholder="1mP0XC0..." value="1mP0XC0uKJoAtDRWC1lGIOeROLcfy8LkUCI31Xfxsy-M"/>
+    <input class="field" id="cfg-sid" type="text" placeholder="1mP0XC0..." value="1RV-9soe0JzXjSQm5B14DziYUABChiLGsA0YsKL9HOv0"/>
     <label class="field-label">Tabblad naam (daily)</label>
     <input class="field" id="cfg-tab" type="text" placeholder="Daily Overview" value="Daily Overview"/>
     <label class="field-label">Google API Key</label>
@@ -368,7 +378,7 @@ main.active{display:block}
 
 <script>
 let CFG = {
-  sid:          localStorage.getItem('pnl3_sid')    || '1mP0XC0uKJoAtDRWC1lGIOeROLcfy8LkUCI31Xfxsy-M',
+  sid:          localStorage.getItem('pnl3_sid')    || '1RV-9soe0JzXjSQm5B14DziYUABChiLGsA0YsKL9HOv0',
   tab:          localStorage.getItem('pnl3_tab')    || 'Daily Overview',
   key:          localStorage.getItem('pnl3_key')    || '',
   targetRev:    parseFloat(localStorage.getItem('pnl3_trev'))    || 150000,
@@ -436,7 +446,7 @@ async function fetchData(){
 
   try{
     // Fetch daily data
-    const range1=encodeURIComponent(`'${CFG.tab}'!A4:N37`);
+    const range1=encodeURIComponent(`'${CFG.tab}'!A4:R37`);
     const url1=`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sid}/values/${range1}?key=${CFG.key}`;
     const r1=await fetch(url1);
     if(!r1.ok){const t=await r1.text();throw new Error(t.includes('API key')?'Ongeldige API key':'Fout '+r1.status);}
@@ -444,10 +454,10 @@ async function fetchData(){
     const rows=(j1.values||[]).slice(1);
 
     const tr=rows.find(r=>r[0]&&r[0].toString().trim()==='MONTH TOTAL');
-    TOTALS=tr?{revenue:pv(tr[1]),googleAds:pv(tr[3]),cog:pv(tr[4]),profit:pv(tr[7]),cm:pv(tr[9]),cogPct:pv(tr[10]),roas:pr(tr[11]),aov:pv(tr[12])}:null;
+    TOTALS=tr?{revenue:pv(tr[1]),googleAds:pv(tr[3]),cog:pv(tr[4]),profit:pv(tr[7]),overheadRefunds:pv(tr[8]),netProfit:pv(tr[9]),cm:pv(tr[12]),cogPct:pv(tr[13]),roas:pr(tr[14]),aov:pv(tr[15])}:null;
 
     DATA=rows.filter(r=>r[0]&&r[0]!=='-'&&r[0].toString().trim()!=='MONTH TOTAL')
-      .map(r=>({date:r[0]||'',revenue:pv(r[1]),orders:pv(r[2]),ads:pv(r[3]),cog:pv(r[4]),fee:pv(r[6]),profit:pv(r[7]),totalProfit:pv(r[8]),cm:pv(r[9]),cogPct:pv(r[10]),roas:pr(r[11]),aov:pv(r[12]),stores:pv(r[13])}))
+      .map(r=>({date:r[0]||'',revenue:pv(r[1]),orders:pv(r[2]),ads:pv(r[3]),cog:pv(r[4]),fee:pv(r[6]),profit:pv(r[7]),overheadRefunds:pv(r[8]),netProfit:pv(r[9]),totalNetProfit:pv(r[10]),totalProfit:pv(r[11]),cm:pv(r[12]),cogPct:pv(r[13]),roas:pr(r[14]),aov:pv(r[15]),stores:pv(r[16])}))
       .filter(r=>r.revenue!=null&&r.revenue>0);
 
     if(!DATA.length) throw new Error('Geen data gevonden. Controleer tabblad naam.');
@@ -538,7 +548,10 @@ function getViewData() {
     const roas = T?T.roas:(()=>{const rs=DATA.filter(r=>r.roas).map(r=>r.roas);return rs.length?rs.reduce((a,b)=>a+b,0)/rs.length:null})();
     const orders = DATA.reduce((a,r)=>a+(r.orders||0),0);
     const winDays = DATA.filter(r=>r.profit>=0).length;
+    const netProfit = (T&&T.netProfit!=null)?T.netProfit:DATA.reduce((a,r)=>a+(r.netProfit||0),0);
+    const overheadRefunds = (T&&T.overheadRefunds!=null)?T.overheadRefunds:DATA.reduce((a,r)=>a+(r.overheadRefunds||0),0);
     return {rev,profit,ads,cog,cm,roas,orders,aov:orders>0?rev/orders:null,
+      netProfit,overheadRefunds,totalNetProfit:netProfit,netCm:rev>0?netProfit/rev*100:null,
       label:'Deze maand',sublabel:DATA.length+' dagen · '+winDays+' winstdagen',
       totalProfit:profit,totalLabel:DATA.length+' actieve dagen',
       isAgg:true,dagdoel:CFG.targetRev,dagdoelLabel:'maanddoel',cogPct:rev>0?cog/rev*100:null};
@@ -555,7 +568,10 @@ function getViewData() {
     const roas = wd.filter(r=>r.roas).length?wd.filter(r=>r.roas).reduce((a,r)=>a+(r.roas||0),0)/wd.filter(r=>r.roas).length:null;
     const orders = wd.reduce((a,r)=>a+(r.orders||0),0);
     const winDays = wd.filter(r=>r.profit>=0).length;
+    const netProfit = wd.reduce((a,r)=>a+(r.netProfit||0),0);
+    const overheadRefunds = wd.reduce((a,r)=>a+(r.overheadRefunds||0),0);
     return {rev,profit,ads,cog,cm,roas,orders,aov:orders>0?rev/orders:null,
+      netProfit,overheadRefunds,totalNetProfit:netProfit,netCm:rev>0?netProfit/rev*100:null,
       label:'Deze week',sublabel:wd.length+' dagen · '+winDays+' winstdagen',
       totalProfit:profit,totalLabel:wd.length+' actieve dagen',
       isAgg:true,dagdoel:(CFG.targetRev/30)*7,dagdoelLabel:'weekdoel',cogPct:rev>0?cog/rev*100:null};
@@ -563,6 +579,7 @@ function getViewData() {
   const d = getSelectedDay();
   const isToday = selectedDayIdx===-1||selectedDayIdx===DATA.length-1;
   return {...d,rev:d.revenue,label:isToday?'Vandaag':d.date,sublabel:d.date,
+    netCm:d.revenue>0?(d.netProfit||0)/d.revenue*100:null,
     totalProfit:d.totalProfit,totalLabel:DATA.length+' actieve dagen',
     isAgg:false,dagdoel:(CFG.targetRev||150000)/30,dagdoelLabel:'dagdoel'};
 }
@@ -632,6 +649,15 @@ function renderToday(){
   const ksC=document.getElementById('ks-cm');
   ksC.textContent='CM: '+fp(v.cm); ksC.className='ks '+(v.cm>=0?'g':'r');
 
+  // Netto winst (na overhead + refunds)
+  const netWin = (v.netProfit||0) >= 0;
+  document.getElementById('kpi-netprofit').className='kpi '+(netWin?'g-acc':'r-acc');
+  const kvN=document.getElementById('kv-netprofit');
+  kvN.textContent=fmF(v.netProfit); kvN.className='kv '+(netWin?'g':'r');
+  const ksN=document.getElementById('ks-netcm');
+  ksN.textContent='na '+fmF(v.overheadRefunds)+' overhead · '+fp(v.netCm);
+  ksN.className='ks '+(netWin?'g':'r');
+
   // ROAS
   document.getElementById('kv-roas').textContent=(v.roas?v.roas.toFixed(2)+'x':'—');
   const roasOk=v.roas&&v.roas>=CFG.targetRoas;
@@ -660,6 +686,14 @@ function renderToday(){
   // Total profit (alleen dag)
   document.getElementById('kv-totalprofit').textContent=fmF(v.totalProfit);
   document.getElementById('ks-totaldays').textContent=v.totalLabel;
+
+  // Netto winst MTD
+  const tnp = v.isAgg ? v.totalNetProfit : v.totalNetProfit;
+  const tnpWin = (tnp||0) >= 0;
+  document.getElementById('kpi-totalnet').className='kpi '+(tnpWin?'g-acc':'r-acc');
+  const kvT=document.getElementById('kv-totalnetprofit');
+  kvT.textContent=fmF(tnp); kvT.className='kv '+(tnpWin?'g':'r');
+  document.getElementById('ks-overheadmtd').textContent='na overhead + refunds';
 
   const last7=DATA.slice(-7);
   if(charts.today) charts.today.destroy();
