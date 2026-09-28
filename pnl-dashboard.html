@@ -269,6 +269,11 @@ main.active{display:block}
           <div class="kv" id="kv-netprofit">—</div>
           <div class="ks" id="ks-netcm">na overhead —</div>
         </div>
+        <div class="kpi" id="kpi-afterrefunds">
+          <div class="kl">Over na R+CB</div>
+          <div class="kv" id="kv-afterrefunds">—</div>
+          <div class="ks" id="ks-afterrefunds">na — R+CB (8%)</div>
+        </div>
         <div class="kpi">
           <div class="kl">ROAS</div>
           <div class="kv gold" id="kv-roas">—</div>
@@ -446,7 +451,7 @@ async function fetchData(){
 
   try{
     // Fetch daily data
-    const range1=encodeURIComponent(`'${CFG.tab}'!A4:R37`);
+    const range1=encodeURIComponent(`'${CFG.tab}'!A4:T37`);
     const url1=`https://sheets.googleapis.com/v4/spreadsheets/${CFG.sid}/values/${range1}?key=${CFG.key}`;
     const r1=await fetch(url1);
     if(!r1.ok){const t=await r1.text();throw new Error(t.includes('API key')?'Ongeldige API key':'Fout '+r1.status);}
@@ -454,10 +459,10 @@ async function fetchData(){
     const rows=(j1.values||[]).slice(1);
 
     const tr=rows.find(r=>r[0]&&r[0].toString().trim()==='MONTH TOTAL');
-    TOTALS=tr?{revenue:pv(tr[1]),googleAds:pv(tr[3]),cog:pv(tr[4]),profit:pv(tr[7]),overheadRefunds:pv(tr[8]),netProfit:pv(tr[9]),cm:pv(tr[12]),cogPct:pv(tr[13]),roas:pr(tr[14]),aov:pv(tr[15])}:null;
+    TOTALS=tr?{revenue:pv(tr[1]),googleAds:pv(tr[3]),cog:pv(tr[4]),profit:pv(tr[7]),refunds:pv(tr[8]),afterRefunds:pv(tr[9]),overhead:pv(tr[10]),overheadRefunds:(pv(tr[8])||0)+(pv(tr[10])||0),netProfit:pv(tr[11]),cm:pv(tr[14]),cogPct:pv(tr[15]),roas:pr(tr[16]),aov:pv(tr[17])}:null;
 
     DATA=rows.filter(r=>r[0]&&r[0]!=='-'&&r[0].toString().trim()!=='MONTH TOTAL')
-      .map(r=>({date:r[0]||'',revenue:pv(r[1]),orders:pv(r[2]),ads:pv(r[3]),cog:pv(r[4]),fee:pv(r[6]),profit:pv(r[7]),overheadRefunds:pv(r[8]),netProfit:pv(r[9]),totalNetProfit:pv(r[10]),totalProfit:pv(r[11]),cm:pv(r[12]),cogPct:pv(r[13]),roas:pr(r[14]),aov:pv(r[15]),stores:pv(r[16])}))
+      .map(r=>({date:r[0]||'',revenue:pv(r[1]),orders:pv(r[2]),ads:pv(r[3]),cog:pv(r[4]),fee:pv(r[6]),profit:pv(r[7]),refunds:pv(r[8]),afterRefunds:pv(r[9]),overhead:pv(r[10]),overheadRefunds:(pv(r[8])||0)+(pv(r[10])||0),netProfit:pv(r[11]),totalNetProfit:pv(r[12]),totalProfit:pv(r[13]),cm:pv(r[14]),cogPct:pv(r[15]),roas:pr(r[16]),aov:pv(r[17]),stores:pv(r[18])}))
       .filter(r=>r.revenue!=null&&r.revenue>0);
 
     if(!DATA.length) throw new Error('Geen data gevonden. Controleer tabblad naam.');
@@ -550,8 +555,11 @@ function getViewData() {
     const winDays = DATA.filter(r=>r.profit>=0).length;
     const netProfit = (T&&T.netProfit!=null)?T.netProfit:DATA.reduce((a,r)=>a+(r.netProfit||0),0);
     const overheadRefunds = (T&&T.overheadRefunds!=null)?T.overheadRefunds:DATA.reduce((a,r)=>a+(r.overheadRefunds||0),0);
+    const refunds = (T&&T.refunds!=null)?T.refunds:DATA.reduce((a,r)=>a+(r.refunds||0),0);
+    const overhead = (T&&T.overhead!=null)?T.overhead:DATA.reduce((a,r)=>a+(r.overhead||0),0);
+    const afterRefunds = (T&&T.afterRefunds!=null)?T.afterRefunds:DATA.reduce((a,r)=>a+(r.afterRefunds||0),0);
     return {rev,profit,ads,cog,cm,roas,orders,aov:orders>0?rev/orders:null,
-      netProfit,overheadRefunds,totalNetProfit:netProfit,netCm:rev>0?netProfit/rev*100:null,
+      netProfit,overheadRefunds,refunds,overhead,afterRefunds,totalNetProfit:netProfit,netCm:rev>0?netProfit/rev*100:null,
       label:'Deze maand',sublabel:DATA.length+' dagen · '+winDays+' winstdagen',
       totalProfit:profit,totalLabel:DATA.length+' actieve dagen',
       isAgg:true,dagdoel:CFG.targetRev,dagdoelLabel:'maanddoel',cogPct:rev>0?cog/rev*100:null};
@@ -570,8 +578,11 @@ function getViewData() {
     const winDays = wd.filter(r=>r.profit>=0).length;
     const netProfit = wd.reduce((a,r)=>a+(r.netProfit||0),0);
     const overheadRefunds = wd.reduce((a,r)=>a+(r.overheadRefunds||0),0);
+    const refunds = wd.reduce((a,r)=>a+(r.refunds||0),0);
+    const overhead = wd.reduce((a,r)=>a+(r.overhead||0),0);
+    const afterRefunds = wd.reduce((a,r)=>a+(r.afterRefunds||0),0);
     return {rev,profit,ads,cog,cm,roas,orders,aov:orders>0?rev/orders:null,
-      netProfit,overheadRefunds,totalNetProfit:netProfit,netCm:rev>0?netProfit/rev*100:null,
+      netProfit,overheadRefunds,refunds,overhead,afterRefunds,totalNetProfit:netProfit,netCm:rev>0?netProfit/rev*100:null,
       label:'Deze week',sublabel:wd.length+' dagen · '+winDays+' winstdagen',
       totalProfit:profit,totalLabel:wd.length+' actieve dagen',
       isAgg:true,dagdoel:(CFG.targetRev/30)*7,dagdoelLabel:'weekdoel',cogPct:rev>0?cog/rev*100:null};
@@ -655,7 +666,7 @@ function renderToday(){
   const kvN=document.getElementById('kv-netprofit');
   kvN.textContent=fmF(v.netProfit); kvN.className='kv '+(netWin?'g':'r');
   const ksN=document.getElementById('ks-netcm');
-  ksN.textContent='na '+fmF(v.overheadRefunds)+' overhead · '+fp(v.netCm);
+  ksN.textContent='na '+fmF(v.refunds)+' R+CB + '+fmF(v.overhead)+' OH · '+fp(v.netCm);
   ksN.className='ks '+(netWin?'g':'r');
 
   // ROAS
@@ -693,7 +704,10 @@ function renderToday(){
   document.getElementById('kpi-totalnet').className='kpi '+(tnpWin?'g-acc':'r-acc');
   const kvT=document.getElementById('kv-totalnetprofit');
   kvT.textContent=fmF(tnp); kvT.className='kv '+(tnpWin?'g':'r');
-  document.getElementById('ks-overheadmtd').textContent='na overhead + refunds';
+  document.getElementById('ks-overheadmtd').textContent='na 8% R+CB + overhead';
+
+  // Over na refunds (8%)
+  const ar=document.getElementById('kv-afterrefunds'); if(ar){const arWin=(v.afterRefunds||0)>=0; ar.textContent=fmF(v.afterRefunds); ar.className='kv '+(arWin?'g':'r'); document.getElementById('kpi-afterrefunds').className='kpi '+(arWin?'g-acc':'r-acc'); document.getElementById('ks-afterrefunds').textContent='na '+fmF(v.refunds)+' R+CB (8%)';}
 
   const last7=DATA.slice(-7);
   if(charts.today) charts.today.destroy();
