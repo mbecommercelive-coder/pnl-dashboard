@@ -365,7 +365,7 @@ main.active{display:block}
     <h3>Koppeling instellen</h3>
     <p>Vul je Google Sheet ID en API sleutel in.</p>
     <label class="field-label">Google Sheet ID</label>
-    <input class="field" id="cfg-sid" type="text" placeholder="1mP0XC0..." value="1RV-9soe0JzXjSQm5B14DziYUABChiLGsA0YsKL9HOv0"/>
+    <input class="field" id="cfg-sid" type="text" placeholder="1mP0XC0..." value="17mVFN1GZdEI4jxqe0JsLmvMWuCxAGEyu3zcvbmFncrU"/>
     <label class="field-label">Tabblad naam (daily)</label>
     <input class="field" id="cfg-tab" type="text" placeholder="Daily Overview" value="Daily Overview"/>
     <label class="field-label">Google API Key</label>
@@ -383,7 +383,7 @@ main.active{display:block}
 
 <script>
 let CFG = {
-  sid:          localStorage.getItem('pnl3_sid')    || '1RV-9soe0JzXjSQm5B14DziYUABChiLGsA0YsKL9HOv0',
+  sid:          localStorage.getItem('pnl3_sid')    || '17mVFN1GZdEI4jxqe0JsLmvMWuCxAGEyu3zcvbmFncrU',
   tab:          localStorage.getItem('pnl3_tab')    || 'Daily Overview',
   key:          localStorage.getItem('pnl3_key')    || '',
   targetRev:    parseFloat(localStorage.getItem('pnl3_trev'))    || 150000,
@@ -445,8 +445,13 @@ function fp(n){if(n==null)return '—';return n.toFixed(1)+'%';}
 function pct(v,t){return t?Math.min(100,Math.max(0,v/t*100)):0;}
 
 // ── FETCH
+let SHEET_MONTH='';
+async function resolveSheet(){
+  try{const r=await fetch('current-sheet.json?ts='+Date.now(),{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&j.sid){CFG.sid=j.sid;SHEET_MONTH=j.month||'';localStorage.setItem('pnl3_sid',j.sid);}}}catch(e){}
+}
 async function fetchData(){
   if(!CFG.key){openCfg();return;}
+  await resolveSheet();
   document.getElementById('sync-time').textContent='Ophalen...';
 
   try{
@@ -484,7 +489,7 @@ async function fetchData(){
     }
 
     const t=new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
-    document.getElementById('sync-time').textContent='Live · '+t;
+    document.getElementById('sync-time').textContent='Live · '+t+(SHEET_MONTH?' · '+SHEET_MONTH:'');
     document.getElementById('cfg-err').style.display='none';
     ['today','stores','week','month','days'].forEach(id=>render(id));
     startCountdown();
